@@ -1,71 +1,86 @@
 "use client";
 
-import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import Link from 'next/link';
-import useFetch from '@/hooks/use-fetch';
-import { updateDefaultAccount } from '@/actions/dashboard';
-import { toast } from 'sonner';
+import { ArrowUpRight, ArrowDownRight, CreditCard } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { useEffect } from "react";
+import useFetch from "@/hooks/use-fetch";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import Link from "next/link";
+import { updateDefaultAccount } from "@/actions/account";
+import { toast } from "sonner";
 
-const AccountCard = ({ account }) => {
+export function AccountCard({ account }) {
   const { name, type, balance, id, isDefault } = account;
 
-  const { loading, fn: setDefault } = useFetch(updateDefaultAccount);
+  const {
+    loading: updateDefaultLoading,
+    fn: updateDefaultFn,
+    data: updatedAccount,
+    error,
+  } = useFetch(updateDefaultAccount);
 
-  const handleDefaultChange = async (e) => {
-    e.preventDefault();
+  const handleDefaultChange = async (event) => {
+    event.preventDefault(); // Prevent navigation
+
     if (isDefault) {
-      toast.warning("You need at least one default account");
-      return;
+      toast.warning("You need atleast 1 default account");
+      return; // Don't allow toggling off the default account
     }
-    await setDefault(id);
-    toast.success(`${name} set as default account`);
+
+    await updateDefaultFn(id);
   };
 
+  useEffect(() => {
+    if (updatedAccount?.success) {
+      toast.success("Default account updated successfully");
+    }
+  }, [updatedAccount]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error.message || "Failed to update default account");
+    }
+  }, [error]);
+
   return (
-    <Card className="hover:shadow-md transition-shadow cursor-pointer group relative">
-      <CardContent className="p-4">
-        {/* Top row: name + switch */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+    <Card className="hover:shadow-md transition-shadow group relative">
+      <Link href={`/account/${id}`}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium capitalize">
             {name}
-          </span>
+          </CardTitle>
           <Switch
             checked={isDefault}
             onClick={handleDefaultChange}
-            disabled={loading}
-            className="shrink-0"
+            disabled={updateDefaultLoading}
           />
-        </div>
-
-        {/* Balance */}
-        <Link href={`/account/${id}`}>
-          <div className="mb-1">
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              ₹{parseFloat(balance).toFixed(2)}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-              {type.charAt(0) + type.slice(1).toLowerCase()} Account
-            </p>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">
+            ₹{parseFloat(balance).toFixed(2)}
           </div>
-
-          {/* Bottom row: Income + Expense */}
-          <div className="flex justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
-              <ArrowUpRight className="h-3.5 w-3.5" />
-              Income
-            </div>
-            <div className="flex items-center gap-1 text-xs text-red-500 font-medium">
-              <ArrowDownRight className="h-3.5 w-3.5" />
-              Expense
-            </div>
+          <p className="text-xs text-muted-foreground">
+            {type.charAt(0) + type.slice(1).toLowerCase()} Account
+          </p>
+        </CardContent>
+        <CardFooter className="flex justify-between text-sm text-muted-foreground">
+          <div className="flex items-center">
+            <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
+            Income
           </div>
-        </Link>
-      </CardContent>
+          <div className="flex items-center">
+            <ArrowDownRight className="mr-1 h-4 w-4 text-red-500" />
+            Expense
+          </div>
+        </CardFooter>
+      </Link>
     </Card>
   );
-};
-
-export default AccountCard;
+}

@@ -1,19 +1,18 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import useFetch from "@/hooks/use-fetch";
 import { scanReceipt } from "@/actions/transaction";
 
-export default function ReceiptScanner({ onScanComplete }) {
+export function ReceiptScanner({ onScanComplete }) {
   const fileInputRef = useRef(null);
 
   const {
     loading: scanReceiptLoading,
     fn: scanReceiptFn,
-    data: scannedData,
   } = useFetch(scanReceipt);
 
   const handleReceiptScan = async (file) => {
@@ -22,15 +21,11 @@ export default function ReceiptScanner({ onScanComplete }) {
       return;
     }
 
-    await scanReceiptFn(file);
-  };
-
-  useEffect(() => {
-    if (scannedData && !scanReceiptLoading) {
-      onScanComplete(scannedData);
-      toast.success("Receipt scanned successfully");
+    const result = await scanReceiptFn(file);
+    if (result) {
+      onScanComplete(result);
     }
-  }, [scanReceiptLoading, scannedData]);
+  };
 
   return (
     <div className="flex items-center gap-4">
@@ -43,6 +38,8 @@ export default function ReceiptScanner({ onScanComplete }) {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleReceiptScan(file);
+          // Allow selecting the same file again.
+          e.target.value = "";
         }}
       />
       <Button

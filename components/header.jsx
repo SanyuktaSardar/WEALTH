@@ -1,13 +1,13 @@
 import React from "react";
 import Image from "next/image";
-import { Show, SignInButton, UserButton } from "@clerk/nextjs";
+import { Show, SignInButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { Button } from "./ui/button";
 import { LayoutDashboard, PenBox } from "lucide-react";
 import { ModeToggle } from "@/components/mode-toggle";
 import { checkUser } from "@/lib/checkUser";
+import { UserButtonClient } from "@/components/user-button-client";
 
-// eslint-disable-next-line @next/next/no-async-client-component
 const Header =async () => {
   await checkUser();
   return (
@@ -63,7 +63,7 @@ const Header =async () => {
           </Show>
 
           <Show when="signed-in">
-            <UserButton
+            <UserButtonClient
               appearance={{
                 elements: {
                   avatarBox: "w-10 h-10",

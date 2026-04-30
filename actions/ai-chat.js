@@ -69,7 +69,9 @@ USER FINANCIAL SUMMARY:
 USER QUESTION: ${question}
   `;
 
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const model = genAI.getGenerativeModel({
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+  });
   const result = await model.generateContent(context);
   const text = result.response.text();
   if (!text) throw new Error("Empty response from AI");

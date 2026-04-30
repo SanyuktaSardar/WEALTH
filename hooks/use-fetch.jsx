@@ -14,12 +14,20 @@ const useFetch = (cb) => {
             const response = await cb(...args);
             setData(response);
             setError(null);
-        } catch (error) {
-            setError(error);
-            toast.error(error.message);
+            return response;
+        } catch (err) {
+            const message =
+                err instanceof Error
+                    ? err.message
+                    : typeof err === "string"
+                    ? err
+                    : "Something went wrong";
+            setError(err);
+            toast.error(message);
+            return undefined;
         } finally {
             setLoading(false);
-      }
+        }
     };
 
     return { data, loading, error, fn, setData };

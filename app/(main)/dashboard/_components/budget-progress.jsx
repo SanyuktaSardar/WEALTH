@@ -1,6 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import { useState, useEffect } from "react";
+import { Pencil, Check, X } from "lucide-react";
+import useFetch from "@/hooks/use-fetch";
+import { toast } from "sonner";
+
 import {
   Card,
   CardContent,
@@ -8,29 +12,34 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from '@/components/ui/button';
-import { Check, Pencil, X } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import useFetch from '@/hooks/use-fetch';
-import { toast } from 'sonner';
-import { updateBudget } from '@/actions/budget';
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { updateBudget } from "@/actions/budget";
 
-const BudgetProgress = ({ initialBudget, currentExpenses }) => {
+export function BudgetProgress({ initialBudget, currentExpenses }) {
   const [isEditing, setIsEditing] = useState(false);
   const [newBudget, setNewBudget] = useState(
     initialBudget?.amount?.toString() || ""
   );
 
-  const percentUsed = initialBudget
-    ? Math.min((currentExpenses / initialBudget.amount) * 100, 100)
-    : 0;
-
   const {
     loading: isLoading,
-    fn: updatedBudgetFn,
-    data: updatedBudget,
+    fn: updateBudgetFn,
     error,
   } = useFetch(updateBudget);
+
+  const percentUsed = initialBudget
+    ? (currentExpenses / initialBudget.amount) * 100
+    : 0;
+
+  // Use inline color so Tailwind purging doesn't strip dynamic class names
+  const progressColor =
+    percentUsed >= 90
+      ? "#ef4444"   // red
+      : percentUsed >= 75
+        ? "#eab308" // yellow
+        : "#22c55e"; // green
 
   const handleUpdateBudget = async () => {
     const amount = parseFloat(newBudget);
@@ -38,15 +47,17 @@ const BudgetProgress = ({ initialBudget, currentExpenses }) => {
       toast.error("Please enter a valid amount");
       return;
     }
-    await updatedBudgetFn(amount);
-  };
-
-  useEffect(() => {
-    if (updatedBudget?.success) {
+    const result = await updateBudgetFn(amount);
+    if (result?.success) {
       setIsEditing(false);
       toast.success("Budget updated successfully");
     }
-  }, [updatedBudget]);
+  };
+
+  const handleCancel = () => {
+    setNewBudget(initialBudget?.amount?.toString() || "");
+    setIsEditing(false);
+  };
 
   useEffect(() => {
     if (error) {
@@ -54,23 +65,13 @@ const BudgetProgress = ({ initialBudget, currentExpenses }) => {
     }
   }, [error]);
 
-  const handleCancel = () => {
-    setNewBudget(initialBudget?.amount?.toString() || "");
-    setIsEditing(false);
-  };
-
-  const progressColor =
-    percentUsed >= 90
-      ? "bg-red-500"
-      : percentUsed >= 75
-      ? "bg-yellow-500"
-      : "bg-green-500";
-
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex-1">
-          <CardTitle>Monthly Budget (Default Account)</CardTitle>
+          <CardTitle className="text-sm font-medium">
+            Monthly Budget (Default Account)
+          </CardTitle>
           <div className="flex items-center gap-2 mt-1">
             {isEditing ? (
               <div className="flex items-center gap-2">
@@ -123,12 +124,10 @@ const BudgetProgress = ({ initialBudget, currentExpenses }) => {
       <CardContent>
         {initialBudget && (
           <div className="space-y-2">
-            <div className="h-2 w-full rounded-full bg-secondary overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${progressColor}`}
-                style={{ width: `${percentUsed}%` }}
-              />
-            </div>
+            <Progress
+              value={percentUsed}
+              indicatorColor={progressColor}
+            />
             <p className="text-xs text-muted-foreground text-right">
               {percentUsed.toFixed(1)}% used
             </p>
@@ -137,6 +136,4 @@ const BudgetProgress = ({ initialBudget, currentExpenses }) => {
       </CardContent>
     </Card>
   );
-};
-
-export default BudgetProgress;
+}

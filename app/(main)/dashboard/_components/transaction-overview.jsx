@@ -1,207 +1,184 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
-import { format } from "date-fns";
-import { useTheme } from "next-themes";
+import { useState } from "react";
 import {
   PieChart,
   Pie,
   Cell,
+  ResponsiveContainer,
   Tooltip,
   Legend,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
 } from "recharts";
+import { format } from "date-fns";
+import { ArrowUpRight, ArrowDownRight } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 const COLORS = [
-  "#16a34a", "#1e40af", "#d97706", "#dc2626", "#7c3aed",
-  "#0891b2", "#be185d", "#65a30d", "#ea580c", "#6366f1",
+  "#7c3aed",
+  "#3b82f6",
+  "#06b6d4",
+  "#10b981",
+  "#f59e0b",
+  "#ec4899",
+  "#8b5cf6",
 ];
 
-export default function DashboardOverview({ accounts, transactions }) {
-  const { resolvedTheme } = useTheme();
-  const lineColor = resolvedTheme === "dark" ? "#38bdf8" : "#1e40af";
-  const recentTransactions = [...transactions]
+export function DashboardOverview({ accounts, transactions }) {
+  const [selectedAccountId, setSelectedAccountId] = useState(
+    accounts.find((a) => a.isDefault)?.id || accounts[0]?.id
+  );
+
+  const accountTransactions = transactions.filter(
+    (t) => t.accountId === selectedAccountId
+  );
+
+  const recentTransactions = [...accountTransactions]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 5);
 
-  const totalBalance = accounts.reduce(
-    (sum, acc) => sum + parseFloat(acc.balance),
-    0
-  );
-
-  const currentMonth = new Date();
-  const monthStart = new Date(
-    currentMonth.getFullYear(),
-    currentMonth.getMonth(),
-    1
-  );
-
-  const monthlyIncome = transactions
-    .filter((t) => t.type === "INCOME" && new Date(t.date) >= monthStart)
-    .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-
-  const currentMonthExpenses = transactions
-    .filter((t) => t.type === "EXPENSE" && new Date(t.date) >= monthStart)
-    .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-
-  // Line chart — last 12 months expenses trend
-  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-  const monthlyExpenses = Array.from({ length: 12 }, (_, i) => {
-    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 11 + i, 1);
-    const year = date.getFullYear();
-    const monthIndex = date.getMonth();
-    const total = transactions
-      .filter((t) => {
-        const d = new Date(t.date);
-        return (
-          t.type === "EXPENSE" &&
-          d.getFullYear() === year &&
-          d.getMonth() === monthIndex
-        );
-      })
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    return {
-      month: `${MONTHS[monthIndex]} ${year !== currentMonth.getFullYear() ? year : ""}`.trim(),
-      amount: parseFloat(total.toFixed(2)),
-    };
+  const currentDate = new Date();
+  const currentMonthExpenses = accountTransactions.filter((t) => {
+    const d = new Date(t.date);
+    return (
+      t.type === "EXPENSE" &&
+      d.getMonth() === currentDate.getMonth() &&
+      d.getFullYear() === currentDate.getFullYear()
+    );
   });
-  const expenseByCategory = transactions
-    .filter((t) => t.type === "EXPENSE" && new Date(t.date) >= monthStart)
-    .reduce((acc, t) => {
-      const cat = t.category || "other";
-      acc[cat] = (acc[cat] || 0) + parseFloat(t.amount);
-      return acc;
-    }, {});
 
-  const pieData = Object.entries(expenseByCategory).map(([name, value]) => ({
-    name: name.charAt(0).toUpperCase() + name.slice(1),
-    value: parseFloat(value.toFixed(2)),
-  }));
+  const expensesByCategory = currentMonthExpenses.reduce((acc, t) => {
+    const amount = typeof t.amount === "number" ? t.amount : parseFloat(t.amount) || 0;
+    acc[t.category] = (acc[t.category] || 0) + amount;
+    return acc;
+  }, {});
+
+  const pieChartData = Object.entries(expensesByCategory).map(
+    ([category, amount]) => ({ name: category, value: amount })
+  );
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      {/* Total Balance */}
+    <div className="grid gap-4 md:grid-cols-2">
+      {/* Recent Transactions */}
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Balance
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <CardTitle className="text-base font-semibold">
+            Recent Transactions
           </CardTitle>
+          <Select
+            value={selectedAccountId}
+            onValueChange={setSelectedAccountId}
+          >
+            <SelectTrigger className="w-[130px] h-8 text-xs">
+              <SelectValue placeholder="Select account" />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  {account.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold">₹{totalBalance.toFixed(2)}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Across {accounts.length} account{accounts.length !== 1 ? "s" : ""}
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Monthly Income */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Monthly Income
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold text-green-600">
-            ₹{monthlyIncome.toFixed(2)}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">This month</p>
-        </CardContent>
-      </Card>
-
-      {/* Monthly Expenses */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Monthly Expenses
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-bold text-red-500">
-            ₹{currentMonthExpenses.toFixed(2)}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">This month</p>
-        </CardContent>
-      </Card>
-
-      {/* Line Chart — Monthly Expenses This Year */}
-      <Card className="md:col-span-3">
-        <CardHeader>
-          <CardTitle className="text-base">
-            Monthly Expenses — Last 12 Months
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={monthlyExpenses}
-                margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 12, fill: "#94a3b8" }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v) => `₹${v}`}
-                />
-                <Tooltip
-                  formatter={(value) => [`₹${value}`, "Expenses"]}
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="amount"
-                  stroke={lineColor}
-                  strokeWidth={2.5}
-                  dot={{ fill: lineColor, r: 4 }}
-                  activeDot={{ r: 6, fill: lineColor }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+        <CardContent className="px-4 pb-4">
+          <div className="space-y-1">
+            {recentTransactions.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8 text-sm">
+                No recent transactions
+              </p>
+            ) : (
+              recentTransactions.map((transaction) => {
+                const amount =
+                  typeof transaction.amount === "number"
+                    ? transaction.amount
+                    : parseFloat(transaction.amount) || 0;
+                return (
+                  <div
+                    key={transaction.id}
+                    className="flex items-center justify-between rounded-xl px-3 py-2.5 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={cn(
+                          "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
+                          transaction.type === "EXPENSE"
+                            ? "bg-red-100 dark:bg-red-900/30"
+                            : "bg-emerald-100 dark:bg-emerald-900/30"
+                        )}
+                      >
+                        {transaction.type === "EXPENSE" ? (
+                          <ArrowDownRight className="h-4 w-4 text-red-500" />
+                        ) : (
+                          <ArrowUpRight className="h-4 w-4 text-emerald-500" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium leading-tight text-foreground">
+                          {transaction.description || "Untitled Transaction"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {format(new Date(transaction.date), "MMM d, yyyy")}
+                          {" · "}
+                          <span className="capitalize">
+                            {transaction.category}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        "text-sm font-semibold tabular-nums",
+                        transaction.type === "EXPENSE"
+                          ? "text-red-500"
+                          : "text-emerald-500"
+                      )}
+                    >
+                      {transaction.type === "EXPENSE" ? "−" : "+"}₹
+                      {amount.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Pie Chart — Expense Breakdown */}
-      {pieData.length > 0 && (
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Expense Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[280px]">
+      {/* Expense Breakdown Pie Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-normal">
+            Monthly Expense Breakdown
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {pieChartData.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8 text-sm">
+              No expenses this month
+            </p>
+          ) : (
+            <div style={{ width: "100%", height: 300 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={pieData}
+                    data={pieChartData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={3}
+                    outerRadius={80}
                     dataKey="value"
+                    label={({ name, value }) =>
+                      `${name}: ${Number(value).toFixed(2)}`
+                    }
                   >
-                    {pieData.map((_, index) => (
+                    {pieChartData.map((_, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={COLORS[index % COLORS.length]}
@@ -209,73 +186,32 @@ export default function DashboardOverview({ accounts, transactions }) {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value) => [`₹${value}`, undefined]}
+                    formatter={(value) => [`₹${Number(value).toFixed(2)}`, undefined]}
                     contentStyle={{
-                      backgroundColor: "white",
-                      border: "1px solid #e2e8f0",
+                      backgroundColor: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
                       borderRadius: "8px",
+                      color: "hsl(var(--popover-foreground))",
                     }}
                   />
-                  <Legend />
+                  <Legend
+                    formatter={(value) => (
+                      <span
+                        style={{
+                          color: "hsl(var(--foreground))",
+                          fontSize: 12,
+                        }}
+                      >
+                        {value}
+                      </span>
+                    )}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recent Transactions */}
-      {recentTransactions.length > 0 && (
-        <Card className={pieData.length > 0 ? "md:col-span-1" : "md:col-span-3"}>
-          <CardHeader>
-            <CardTitle className="text-base">Recent Transactions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentTransactions.map((t) => (
-                <div
-                  key={t.id}
-                  className="flex items-center justify-between py-2 border-b last:border-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "p-1.5 rounded-full",
-                        t.type === "INCOME"
-                          ? "bg-green-100 text-green-600"
-                          : "bg-red-100 text-red-500"
-                      )}
-                    >
-                      {t.type === "INCOME" ? (
-                        <ArrowUpRight className="h-4 w-4" />
-                      ) : (
-                        <ArrowDownRight className="h-4 w-4" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium truncate max-w-[120px]">
-                        {t.description || t.category}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(t.date), "MMM d")}
-                      </p>
-                    </div>
-                  </div>
-                  <p
-                    className={cn(
-                      "text-sm font-semibold shrink-0",
-                      t.type === "INCOME" ? "text-green-600" : "text-red-500"
-                    )}
-                  >
-                    {t.type === "INCOME" ? "+" : "-"}₹
-                    {parseFloat(t.amount).toFixed(2)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

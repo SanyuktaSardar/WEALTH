@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import useFetch from "@/hooks/use-fetch";
@@ -35,7 +35,7 @@ export default function CreateAccountDrawer({ children }) {
     handleSubmit,
     formState: { errors },
     setValue,
-    watch,
+    control,
     reset,
   } = useForm({
     resolver: zodResolver(accountSchema),
@@ -51,20 +51,19 @@ export default function CreateAccountDrawer({ children }) {
     loading: createAccountLoading,
     fn: createAccountFn,
     error,
-    data: newAccount,
   } = useFetch(createAccount);
 
   const onSubmit = async (data) => {
-    await createAccountFn(data);
-  };
-
-  useEffect(() => {
-    if (newAccount) {
+    const result = await createAccountFn(data);
+    if (result) {
       toast.success("Account created successfully");
       reset();
       setOpen(false);
     }
-  }, [newAccount, reset]);
+  };
+
+  const accountType = useWatch({ control, name: "type" });
+  const isDefault = useWatch({ control, name: "isDefault" });
 
   useEffect(() => {
     if (error) {
@@ -107,7 +106,7 @@ export default function CreateAccountDrawer({ children }) {
               </label>
               <Select
                 onValueChange={(value) => setValue("type", value)}
-                defaultValue={watch("type")}
+                defaultValue={accountType}
               >
                 <SelectTrigger id="type">
                   <SelectValue placeholder="Select type" />
@@ -155,7 +154,7 @@ export default function CreateAccountDrawer({ children }) {
               </div>
               <Switch
                 id="isDefault"
-                checked={watch("isDefault")}
+                checked={!!isDefault}
                 onCheckedChange={(checked) => setValue("isDefault", checked)}
               />
             </div>

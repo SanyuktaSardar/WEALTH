@@ -1,9 +1,17 @@
 "use client";
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { endOfDay, startOfDay, subDays, format } from 'date-fns';
-import React, { useMemo, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+import { useState, useMemo } from "react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
+import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { useTheme } from "next-themes";
+import useIsClient from "@/hooks/use-is-client";
 
 const DATE_RANGES = {
   "7D": { label: "Last 7 Days", days: 7 },
@@ -13,8 +21,14 @@ const DATE_RANGES = {
   ALL: { label: "All Time", days: null },
 };
 
-const AccountChart = ({ transactions }) => {
+export function AccountChart({ transactions }) {
   const [dateRange, setDateRange] = useState("1M");
+  const { resolvedTheme } = useTheme();
+  const isClient = useIsClient();
+
+  const isDark = isClient && resolvedTheme === "dark";
+  const axisColor = isDark ? "#94a3b8" : "#64748b";
+  const gridColor = isDark ? "#1e293b" : "#e2e8f0";
 
   const filteredData = useMemo(() => {
     const range = DATE_RANGES[dateRange];
@@ -29,13 +43,11 @@ const AccountChart = ({ transactions }) => {
 
     const grouped = filtered.reduce((acc, transaction) => {
       const date = format(new Date(transaction.date), "MMM dd");
-      if (!acc[date]) {
-        acc[date] = { date, income: 0, expense: 0 };
-      }
+      if (!acc[date]) acc[date] = { date, income: 0, expense: 0 };
       if (transaction.type === "INCOME") {
-        acc[date].income += parseFloat(transaction.amount);
+        acc[date].income += transaction.amount;
       } else {
-        acc[date].expense += parseFloat(transaction.amount);
+        acc[date].expense += transaction.amount;
       }
       return acc;
     }, {});
@@ -58,28 +70,35 @@ const AccountChart = ({ transactions }) => {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
-        <CardTitle className="text-base font-normal">Transaction Overview</CardTitle>
+        <CardTitle className="text-base font-normal">
+          Transaction Overview
+        </CardTitle>
         <Select defaultValue={dateRange} onValueChange={setDateRange}>
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Select Range" />
+            <SelectValue placeholder="Select range" />
           </SelectTrigger>
           <SelectContent>
             {Object.entries(DATE_RANGES).map(([key, { label }]) => (
-              <SelectItem key={key} value={key}>{label}</SelectItem>
+              <SelectItem key={key} value={key}>
+                {label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </CardHeader>
-
       <CardContent>
         <div className="flex justify-around mb-6 text-sm">
           <div className="text-center">
             <p className="text-muted-foreground">Total Income</p>
-            <p className="text-lg font-bold text-green-500">₹{totals.income.toFixed(2)}</p>
+            <p className="text-lg font-bold text-green-500">
+              ₹{totals.income.toFixed(2)}
+            </p>
           </div>
           <div className="text-center">
             <p className="text-muted-foreground">Total Expenses</p>
-            <p className="text-lg font-bold text-red-500">₹{totals.expense.toFixed(2)}</p>
+            <p className="text-lg font-bold text-red-500">
+              ₹{totals.expense.toFixed(2)}
+            </p>
           </div>
           <div className="text-center">
             <p className="text-muted-foreground">Net</p>
@@ -91,21 +110,44 @@ const AccountChart = ({ transactions }) => {
 
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={filteredData}
-              margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="date" />
+            <BarChart data={filteredData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke={gridColor}
+              />
+              <XAxis
+                dataKey="date"
+                fontSize={12}
+                tickLine={false}
+                axisLine={{ stroke: gridColor }}
+                tick={{ fill: axisColor }}
+              />
               <YAxis
                 fontSize={12}
                 tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `₹${value}`}
+                axisLine={{ stroke: gridColor }}
+                tick={{ fill: axisColor }}
+                tickFormatter={(value) => `${value}`}
               />
-              <Tooltip formatter={(value) => [`₹${value}`, undefined]} />
-              <Legend />
-              <Bar dataKey="income" name="Income" fill="#22c55e" radius={[4, 4, 0, 0]} />
+              <Tooltip
+                formatter={(value) => [`${value}`, undefined]}
+                contentStyle={{
+                  backgroundColor: isDark ? "#1e293b" : "#ffffff",
+                  border: `1px solid ${isDark ? "#334155" : "#e2e8f0"}`,
+                  borderRadius: "var(--radius)",
+                  color: isDark ? "#f1f5f9" : "#0f172a",
+                }}
+                labelStyle={{ color: isDark ? "#f1f5f9" : "#0f172a" }}
+              />
+              <Legend
+                formatter={(value) => (
+                  <span style={{ color: "hsl(var(--foreground))", fontSize: 12 }}>
+                    {value}
+                  </span>
+                )}
+              />
+              <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
               <Bar dataKey="expense" name="Expense" fill="#ef4444" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -113,6 +155,4 @@ const AccountChart = ({ transactions }) => {
       </CardContent>
     </Card>
   );
-};
-
-export default AccountChart;
+}

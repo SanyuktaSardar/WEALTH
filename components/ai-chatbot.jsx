@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import { Bot, X, Send, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { askFinanceAI } from "@/actions/ai-chat";
 import { cn } from "@/lib/utils";
 
 const SUGGESTIONS = [
@@ -40,7 +39,14 @@ export default function AIChatbot() {
     setLoading(true);
 
     try {
-      const reply = await askFinanceAI(text);
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Chat request failed");
+      const reply = data?.reply;
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch (err) {
       console.error("AI chat error:", err);
