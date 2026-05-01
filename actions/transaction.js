@@ -3,11 +3,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import aj from "@/lib/arcjet";
 import { request } from "@arcjet/next";
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+import { scanReceiptLocally } from "@/lib/receipt-scanner-model";
 
 const serializeAmount = (obj) => ({
   ...obj,
@@ -155,6 +153,8 @@ export async function updateTransaction(id, data) {
       data.type === "EXPENSE" ? -data.amount : data.amount;
 
     const netBalanceChange = newBalanceChange - oldBalanceChange;
+    const originalAccountId = originalTransaction.accountId;
+    const nextAccountId = data.accountId;
 
     // Update transaction and account balance in a transaction
     const transaction = await db.$transaction(async (tx) => {
@@ -172,21 +172,44 @@ export async function updateTransaction(id, data) {
         },
       });
 
-      // Update account balance
-      await tx.account.update({
-        where: { id: data.accountId },
-        data: {
-          balance: {
-            increment: netBalanceChange,
+      // Keep balances correct even when the transaction is moved to another account.
+      if (originalAccountId === nextAccountId) {
+        await tx.account.update({
+          where: { id: nextAccountId },
+          data: {
+            balance: {
+              increment: netBalanceChange,
+            },
           },
-        },
-      });
+        });
+      } else {
+        await tx.account.update({
+          where: { id: originalAccountId },
+          data: {
+            balance: {
+              decrement: oldBalanceChange,
+            },
+          },
+        });
+
+        await tx.account.update({
+          where: { id: nextAccountId },
+          data: {
+            balance: {
+              increment: newBalanceChange,
+            },
+          },
+        });
+      }
 
       return updated;
     });
 
     revalidatePath("/dashboard");
-    revalidatePath(`/account/${data.accountId}`);
+    revalidatePath(`/account/${nextAccountId}`);
+    if (originalAccountId !== nextAccountId) {
+      revalidatePath(`/account/${originalAccountId}`);
+    }
 
     return { success: true, data: serializeAmount(transaction) };
   } catch (error) {
@@ -230,63 +253,40 @@ export async function getUserTransactions(query = {}) {
 // Scan Receipt
 export async function scanReceipt(file) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const isTextLike =
+      file.type.startsWith("text/") || /\.(txt|csv|log|md)$/i.test(file.name);
+    const rawText = isTextLike ? await file.text() : "";
 
-    // Convert File to ArrayBuffer
-    const arrayBuffer = await file.arrayBuffer();
-    // Convert ArrayBuffer to Base64
-    const base64String = Buffer.from(arrayBuffer).toString("base64");
+    const result = scanReceiptLocally({
+      rawText,
+      fileName: file.name,
+    });
 
-    const prompt = `
-      Analyze this receipt image and extract the following information in JSON format:
-      - Total amount (just the number)
-      - Date (in ISO format)
-      - Description or items purchased (brief summary)
-      - Merchant/store name
-      - Suggested category (one of: housing,transportation,groceries,utilities,entertainment,food,shopping,healthcare,education,personal,travel,insurance,gifts,bills,other-expense )
-      
-      Only respond with valid JSON in this exact format:
-      {
-        "amount": number,
-        "date": "ISO date string",
-        "description": "string",
-        "merchantName": "string",
-        "category": "string"
-      }
-
-      If its not a recipt, return an empty object
-    `;
-
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: base64String,
-          mimeType: file.type,
-        },
-      },
-      prompt,
-    ]);
-
-    const response = await result.response;
-    const text = response.text();
-    const cleanedText = text.replace(/```(?:json)?\n?/g, "").trim();
-
-    try {
-      const data = JSON.parse(cleanedText);
-      return {
-        amount: parseFloat(data.amount),
-        date: new Date(data.date),
-        description: data.description,
-        category: data.category,
-        merchantName: data.merchantName,
-      };
-    } catch (parseError) {
-      console.error("Error parsing JSON response:", parseError);
-      throw new Error("Invalid response format from Gemini");
+    if (!result.amount || result.amount <= 0) {
+      throw new Error(
+        "Could not detect total amount confidently. Upload a text receipt or paste clearer receipt text."
+      );
     }
+
+    return result;
   } catch (error) {
     console.error("Error scanning receipt:", error);
-    throw new Error("Failed to scan receipt");
+    throw new Error(error.message || "Failed to scan receipt");
+  }
+}
+
+export async function scanReceiptText(rawText) {
+  try {
+    if (!rawText || !String(rawText).trim()) {
+      throw new Error("Receipt text is required");
+    }
+    const result = scanReceiptLocally({ rawText, fileName: "manual-entry.txt" });
+    if (!result.amount || result.amount <= 0) {
+      throw new Error("Could not find total amount from the provided text");
+    }
+    return result;
+  } catch (error) {
+    throw new Error(error.message || "Failed to scan receipt text");
   }
 }
 

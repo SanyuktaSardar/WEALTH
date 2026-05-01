@@ -26,12 +26,12 @@ const HeroSection = () => {
         return ()=> window.removeEventListener("scroll",handleScroll);
     },[]);
   return (
-    <div className="pt-28 pb-20 px-4">
+    <div className="px-4 pb-16 pt-24 sm:pb-20 sm:pt-28">
         <div className='container mx-auto text-center'>
-            <h1 className="text-3xl md:text-8xl lg:text-[105px] pb-6 gradient-title">
+            <h1 className="pb-5 text-4xl leading-tight sm:text-5xl md:text-7xl lg:text-8xl gradient-title">
                 Your Finances <br/> Powered by Intelligence
             </h1>
-      <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">An AI-powered financial management platform that help you track 
+      <p className="mx-auto mb-8 max-w-2xl text-base leading-relaxed text-gray-600 dark:text-gray-300 sm:text-lg">An AI-powered financial management platform that help you track 
                 analyze, and optimize your spending with real-time insights.</p>
         </div>
         <div className='flex justify-center space-x-4'>

@@ -12,7 +12,7 @@ export default function ChatPage() {
     {
       role: "assistant",
       content:
-        "Hi! I'm your AI finance assistant. Ask me anything about your spending, budgets, or financial tips! 💰",
+        "Hi! I'm your local finance assistant. Ask me anything about your spending, budgets, or savings tips! 💰",
     },
   ]);
   const [input, setInput] = useState("");
@@ -62,21 +62,20 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-5">
-      <div className="flex justify-center md:justify-normal mb-8">
-        <h1 className="text-5xl gradient-title">Finance AI Chat</h1>
+    <div className="mx-auto w-full max-w-3xl px-0">
+      <div className="mb-6 flex justify-center md:justify-normal">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl gradient-title">Finance AI Chat</h1>
       </div>
 
-      <Card className="flex flex-col h-[600px]">
-        <CardHeader className="pb-3 border-b">
+      <Card className="flex h-[70vh] min-h-[520px] max-h-[760px] flex-col">
+        <CardHeader className="border-b pb-3">
           <CardTitle className="flex items-center gap-2 text-base font-medium">
             <Bot className="h-5 w-5 text-blue-500" />
-            Powered by Gemini
+            Powered by Local Model
           </CardTitle>
         </CardHeader>
 
-        {/* Messages */}
-        <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+        <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           {messages.map((msg, i) => (
             <div
               key={i}
@@ -108,8 +107,7 @@ export default function ChatPage() {
           <div ref={bottomRef} />
         </CardContent>
 
-        {/* Input */}
-        <div className="p-4 border-t flex gap-2">
+        <div className="flex gap-2 border-t p-4">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}

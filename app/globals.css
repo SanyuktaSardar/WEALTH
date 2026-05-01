@@ -127,12 +127,12 @@
   html {
     @apply font-sans;
   }
-  h1 { @apply text-4xl font-bold; }
-  h2 { @apply text-3xl font-bold; }
-  h3 { @apply text-2xl font-semibold; }
-  h4 { @apply text-xl font-semibold; }
-  h5 { @apply text-lg font-medium; }
-  h6 { @apply text-base font-medium; }
+  h1 { @apply text-3xl sm:text-4xl lg:text-5xl leading-tight font-bold; }
+  h2 { @apply text-2xl sm:text-3xl lg:text-4xl leading-tight font-bold; }
+  h3 { @apply text-xl sm:text-2xl lg:text-3xl leading-snug font-semibold; }
+  h4 { @apply text-lg sm:text-xl lg:text-2xl leading-snug font-semibold; }
+  h5 { @apply text-base sm:text-lg leading-snug font-medium; }
+  h6 { @apply text-sm sm:text-base leading-snug font-medium; }
 }
 
 @layer utilities {

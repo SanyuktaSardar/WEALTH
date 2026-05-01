@@ -128,10 +128,10 @@ export function AccountChart({ transactions }) {
                 tickLine={false}
                 axisLine={{ stroke: gridColor }}
                 tick={{ fill: axisColor }}
-                tickFormatter={(value) => `${value}`}
+                tickFormatter={(value) => `₹${value}`}
               />
               <Tooltip
-                formatter={(value) => [`${value}`, undefined]}
+                formatter={(value) => [`₹${Number(value).toFixed(2)}`, undefined]}
                 contentStyle={{
                   backgroundColor: isDark ? "#1e293b" : "#ffffff",
                   border: `1px solid ${isDark ? "#334155" : "#e2e8f0"}`,

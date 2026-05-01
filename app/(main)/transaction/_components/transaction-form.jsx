@@ -37,6 +37,11 @@ export function AddTransactionForm({
   editMode = false,
   initialData = null,
 }) {
+  const fieldUpdateConfig = {
+    shouldValidate: true,
+    shouldDirty: true,
+    shouldTouch: true,
+  };
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
@@ -47,7 +52,6 @@ export function AddTransactionForm({
     formState: { errors },
     control,
     setValue,
-    getValues,
     reset,
   } = useForm({
     resolver: zodResolver(transactionSchema),
@@ -96,15 +100,20 @@ export function AddTransactionForm({
 
   const handleScanComplete = (scannedData) => {
     if (scannedData) {
-      setValue("amount", scannedData.amount.toString());
-      setValue("date", new Date(scannedData.date));
-      if (scannedData.description) {
-        setValue("description", scannedData.description);
+      const totalPrice = scannedData.totalPrice ?? scannedData.amount;
+      setValue("amount", totalPrice.toString(), fieldUpdateConfig);
+      setValue("date", new Date(scannedData.date), fieldUpdateConfig);
+      const detectedItem =
+        scannedData.item ||
+        (Array.isArray(scannedData.items) ? scannedData.items[0] : "") ||
+        scannedData.description;
+      if (detectedItem) {
+        setValue("description", detectedItem, fieldUpdateConfig);
       }
       if (scannedData.category) {
-        setValue("category", scannedData.category);
+        setValue("category", scannedData.category, fieldUpdateConfig);
       }
-      toast.success("Receipt scanned successfully");
+      toast.success("Receipt scanned: item and total price filled");
     }
   };
 
@@ -137,12 +146,19 @@ export function AddTransactionForm({
 
       {/* Type */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground">Type</label>
+        <label htmlFor="transaction-type" className="text-sm font-medium text-foreground">
+          Type
+        </label>
         <Select
-          onValueChange={(value) => setValue("type", value)}
+          onValueChange={(value) =>
+            setValue("type", value, fieldUpdateConfig)
+          }
           value={type ?? "EXPENSE"}
         >
-          <SelectTrigger className="bg-background border-border text-foreground">
+          <SelectTrigger
+            id="transaction-type"
+            className="w-full bg-background border-border text-foreground"
+          >
             <SelectValue placeholder="Select type" />
           </SelectTrigger>
           <SelectContent className="bg-popover border-border text-popover-foreground">
@@ -158,8 +174,11 @@ export function AddTransactionForm({
       {/* Amount + Account */}
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Amount</label>
+          <label htmlFor="transaction-amount" className="text-sm font-medium text-foreground">
+            Amount
+          </label>
           <Input
+            id="transaction-amount"
             type="number"
             step="0.01"
             placeholder="0.00"
@@ -172,12 +191,19 @@ export function AddTransactionForm({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Account</label>
+          <label htmlFor="transaction-account" className="text-sm font-medium text-foreground">
+            Account
+          </label>
           <Select
-            onValueChange={(value) => setValue("accountId", value)}
+            onValueChange={(value) =>
+              setValue("accountId", value, fieldUpdateConfig)
+            }
             value={accountId ?? undefined}
           >
-            <SelectTrigger className="bg-background border-border text-foreground">
+            <SelectTrigger
+              id="transaction-account"
+              className="w-full bg-background border-border text-foreground"
+            >
               <SelectValue placeholder="Select account" />
             </SelectTrigger>
             <SelectContent className="bg-popover border-border text-popover-foreground">
@@ -204,12 +230,19 @@ export function AddTransactionForm({
 
       {/* Category */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground">Category</label>
+        <label htmlFor="transaction-category" className="text-sm font-medium text-foreground">
+          Category
+        </label>
         <Select
-          onValueChange={(value) => setValue("category", value)}
+          onValueChange={(value) =>
+            setValue("category", value, fieldUpdateConfig)
+          }
           value={category ?? undefined}
         >
-          <SelectTrigger className="bg-background border-border text-foreground">
+          <SelectTrigger
+            id="transaction-category"
+            className="w-full bg-background border-border text-foreground"
+          >
             <SelectValue placeholder="Select category" />
           </SelectTrigger>
           <SelectContent className="bg-popover border-border text-popover-foreground">
@@ -227,10 +260,13 @@ export function AddTransactionForm({
 
       {/* Date */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground">Date</label>
+        <label htmlFor="transaction-date" className="text-sm font-medium text-foreground">
+          Date
+        </label>
         <Popover>
           <PopoverTrigger asChild>
             <Button
+              id="transaction-date"
               variant="outline"
               className={cn(
                 "w-full pl-3 text-left font-normal bg-background border-border text-foreground hover:bg-accent",
@@ -245,7 +281,10 @@ export function AddTransactionForm({
             <Calendar
               mode="single"
               selected={date}
-              onSelect={(date) => setValue("date", date)}
+              onSelect={(nextDate) => {
+                if (!nextDate) return;
+                setValue("date", nextDate, fieldUpdateConfig);
+              }}
               disabled={(date) =>
                 date > new Date() || date < new Date("1900-01-01")
               }
@@ -260,8 +299,11 @@ export function AddTransactionForm({
 
       {/* Description */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground">Description</label>
+        <label htmlFor="transaction-description" className="text-sm font-medium text-foreground">
+          Description
+        </label>
         <Input
+          id="transaction-description"
           placeholder="Enter description"
           className="bg-background border-border text-foreground placeholder:text-muted-foreground"
           {...register("description")}
@@ -283,7 +325,9 @@ export function AddTransactionForm({
         </div>
         <Switch
           checked={isRecurring}
-          onCheckedChange={(checked) => setValue("isRecurring", checked)}
+          onCheckedChange={(checked) =>
+            setValue("isRecurring", checked, fieldUpdateConfig)
+          }
         />
       </div>
 
@@ -293,7 +337,9 @@ export function AddTransactionForm({
             Recurring Interval
           </label>
           <Select
-            onValueChange={(value) => setValue("recurringInterval", value)}
+            onValueChange={(value) =>
+              setValue("recurringInterval", value, fieldUpdateConfig)
+            }
             value={recurringInterval ?? undefined}
           >
             <SelectTrigger className="bg-background border-border text-foreground">
@@ -315,18 +361,18 @@ export function AddTransactionForm({
       )}
 
       {/* Actions */}
-      <div className="flex flex-row gap-4 w-full">
+      <div className="flex w-full flex-col gap-3 sm:flex-row sm:gap-4">
         <Button
           type="button"
           variant="outline"
-          className="w-1/2 border-border text-foreground hover:bg-accent"
+          className="w-full sm:w-1/2 border-border text-foreground hover:bg-accent"
           onClick={() => router.back()}
         >
           Cancel
         </Button>
         <Button
           type="submit"
-          className="w-1/2"
+          className="w-full sm:w-1/2"
           disabled={transactionLoading}
         >
           {transactionLoading ? (

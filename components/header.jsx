@@ -11,7 +11,7 @@ import { UserButtonClient } from "@/components/user-button-client";
 const Header =async () => {
   await checkUser();
   return (
-    <header className="fixed top-0 w-full h-20 z-50 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-md transition-colors duration-300">
+    <header className="fixed top-0 z-50 h-[4.5rem] w-full border-b bg-white/80 backdrop-blur-md transition-colors duration-300 dark:bg-gray-900/80">
       <nav className="container mx-auto px-4 h-full flex items-center justify-between">
         
         {/* Logo */}
@@ -22,7 +22,7 @@ const Header =async () => {
             alt="wealth logo"
             height={700}
             width={700}
-            className="h-12 w-36 object-contain block dark:hidden"
+            className="block h-12 w-36 object-contain dark:hidden"
           />
           {/* Dark mode logo */}
           <Image
@@ -30,12 +30,12 @@ const Header =async () => {
             alt="wealth logo"
             height={700}
             width={700}
-            className="h-16 w-48 object-contain hidden dark:block"
+            className="hidden h-12 w-36 object-contain dark:block"
           />
         </Link>
 
         {/* Right Side */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3 sm:space-x-4">
 
           {/* Dark Mode Toggle */}
           <ModeToggle />

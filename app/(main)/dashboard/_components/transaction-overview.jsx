@@ -175,7 +175,7 @@ export function DashboardOverview({ accounts, transactions }) {
                     outerRadius={80}
                     dataKey="value"
                     label={({ name, value }) =>
-                      `${name}: ${Number(value).toFixed(2)}`
+                      `${name}: ₹${Number(value).toFixed(2)}`
                     }
                   >
                     {pieChartData.map((_, index) => (

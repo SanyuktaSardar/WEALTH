@@ -3,9 +3,9 @@ import { Suspense } from "react";
 
 export default function Layout({ children }) {
   return (
-    <div className="px-5">
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-6xl font-bold tracking-tight gradient-title">
+    <div className="px-0">
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight gradient-title">
           Dashboard
         </h1>
       </div>
