@@ -16,21 +16,33 @@ export default async function DashboardPage() {
     getMonthlyExpenses(),
   ]);
 
-  const defaultAccount = accounts?.find((account) => account.isDefault);
-
-  // Get budget for default account
-  let budgetData = null;
-  if (defaultAccount) {
-    budgetData = await getCurrentBudget(defaultAccount.id);
-  }
+  // Fetch budget for every account in parallel
+  const budgetDataList = await Promise.all(
+    (accounts || []).map((account) =>
+      getCurrentBudget(account.id).then((data) => ({
+        accountId: account.id,
+        accountName: account.name,
+        ...data,
+      }))
+    )
+  );
 
   return (
     <div className="space-y-8">
-      {/* Budget Progress */}
-      <BudgetProgress
-        initialBudget={budgetData?.budget}
-        currentExpenses={budgetData?.currentExpenses || 0}
-      />
+      {/* Per-account Budget Progress */}
+      {budgetDataList.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {budgetDataList.map((bd) => (
+            <BudgetProgress
+              key={bd.accountId}
+              accountId={bd.accountId}
+              accountName={bd.accountName}
+              initialBudget={bd.budget}
+              currentExpenses={bd.currentExpenses || 0}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Dashboard Overview */}
       <DashboardOverview
@@ -52,7 +64,7 @@ export default async function DashboardPage() {
           </Card>
         </CreateAccountDrawer>
         {accounts.length > 0 &&
-          accounts?.map((account) => (
+          accounts.map((account) => (
             <AccountCard key={account.id} account={account} />
           ))}
       </div>

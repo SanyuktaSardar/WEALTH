@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { updateBudget } from "@/actions/budget";
 
-export function BudgetProgress({ initialBudget, currentExpenses }) {
+export function BudgetProgress({ accountId, accountName, initialBudget, currentExpenses }) {
   const [isEditing, setIsEditing] = useState(false);
   const [newBudget, setNewBudget] = useState(
     initialBudget?.amount?.toString() || ""
@@ -30,16 +30,11 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
   } = useFetch(updateBudget);
 
   const percentUsed = initialBudget
-    ? (currentExpenses / initialBudget.amount) * 100
+    ? Math.min((currentExpenses / initialBudget.amount) * 100, 100)
     : 0;
 
-  // Use inline color so Tailwind purging doesn't strip dynamic class names
   const progressColor =
-    percentUsed >= 90
-      ? "#ef4444"   // red
-      : percentUsed >= 75
-        ? "#eab308" // yellow
-        : "#22c55e"; // green
+    percentUsed >= 90 ? "#ef4444" : percentUsed >= 75 ? "#eab308" : "#22c55e";
 
   const handleUpdateBudget = async () => {
     const amount = parseFloat(newBudget);
@@ -47,7 +42,7 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
       toast.error("Please enter a valid amount");
       return;
     }
-    const result = await updateBudgetFn(amount);
+    const result = await updateBudgetFn(accountId, amount);
     if (result?.success) {
       setIsEditing(false);
       toast.success("Budget updated successfully");
@@ -60,9 +55,7 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
   };
 
   useEffect(() => {
-    if (error) {
-      toast.error(error.message || "Failed to update budget");
-    }
+    if (error) toast.error(error.message || "Failed to update budget");
   }, [error]);
 
   return (
@@ -70,7 +63,7 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex-1">
           <CardTitle className="text-sm font-medium">
-            Monthly Budget (Default Account)
+            Monthly Budget — {accountName}
           </CardTitle>
           <div className="flex items-center gap-2 mt-1">
             {isEditing ? (
@@ -84,20 +77,10 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
                   autoFocus
                   disabled={isLoading}
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleUpdateBudget}
-                  disabled={isLoading}
-                >
+                <Button variant="ghost" size="icon" onClick={handleUpdateBudget} disabled={isLoading}>
                   <Check className="h-4 w-4 text-green-500" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleCancel}
-                  disabled={isLoading}
-                >
+                <Button variant="ghost" size="icon" onClick={handleCancel} disabled={isLoading}>
                   <X className="h-4 w-4 text-red-500" />
                 </Button>
               </div>
@@ -106,7 +89,7 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
                 <CardDescription>
                   {initialBudget
                     ? `₹${currentExpenses.toFixed(2)} of ₹${initialBudget.amount.toFixed(2)} spent`
-                    : "No budget set"}
+                    : "No budget set — click ✏️ to add one"}
                 </CardDescription>
                 <Button
                   variant="ghost"
@@ -122,16 +105,17 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
         </div>
       </CardHeader>
       <CardContent>
-        {initialBudget && (
+        {initialBudget ? (
           <div className="space-y-2">
-            <Progress
-              value={percentUsed}
-              indicatorColor={progressColor}
-            />
+            <Progress value={percentUsed} indicatorColor={progressColor} />
             <p className="text-xs text-muted-foreground text-right">
               {percentUsed.toFixed(1)}% used
             </p>
           </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Set a monthly budget to track spending for this account.
+          </p>
         )}
       </CardContent>
     </Card>
