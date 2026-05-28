@@ -4,31 +4,51 @@ import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 
-// Get budget + current month expenses for a specific account
 export async function getCurrentBudget(accountId) {
   try {
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized");
 
-    const user = await db.user.findUnique({ where: { clerkUserId: userId } });
-    if (!user) throw new Error("User not found");
-
-    const budget = await db.budget.findUnique({
-      where: { accountId },
+    const user = await db.user.findUnique({
+      where: { clerkUserId: userId },
     });
 
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const budget = await db.budget.findFirst({
+      where: {
+        userId: user.id,
+      },
+    });
+
+    // Get current month's expenses
+    const currentDate = new Date();
+    const startOfMonth = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      1
+    );
+    const endOfMonth = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth() + 1,
+      0
+    );
 
     const expenses = await db.transaction.aggregate({
       where: {
         userId: user.id,
-        accountId,
         type: "EXPENSE",
-        date: { gte: startOfMonth, lte: endOfMonth },
+        date: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+        accountId,
       },
-      _sum: { amount: true },
+      _sum: {
+        amount: true,
+      },
     });
 
     return {
@@ -43,25 +63,29 @@ export async function getCurrentBudget(accountId) {
   }
 }
 
-// Set or update budget for a specific account
-export async function updateBudget(accountId, amount) {
+export async function updateBudget(amount) {
   try {
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized");
 
-    const user = await db.user.findUnique({ where: { clerkUserId: userId } });
+    const user = await db.user.findUnique({
+      where: { clerkUserId: userId },
+    });
+
     if (!user) throw new Error("User not found");
 
-    // Verify the account belongs to this user
-    const account = await db.account.findUnique({
-      where: { id: accountId, userId: user.id },
-    });
-    if (!account) throw new Error("Account not found");
-
+    // Update or create budget
     const budget = await db.budget.upsert({
-      where: { accountId },
-      update: { amount },
-      create: { userId: user.id, accountId, amount },
+      where: {
+        userId: user.id,
+      },
+      update: {
+        amount,
+      },
+      create: {
+        userId: user.id,
+        amount,
+      },
     });
 
     revalidatePath("/dashboard");
