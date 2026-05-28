@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format, parseISO } from "date-fns";
+import { sendReportEmail } from "@/actions/send-email";
+import { toast } from "sonner";
 
 /**
  * Props:
@@ -19,6 +21,7 @@ export function DownloadReportButton({
   budgetDataList = [],
 }) {
   const [loading, setLoading] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
 
   const handleDownload = () => {
     setLoading(true);
@@ -206,20 +209,57 @@ export function DownloadReportButton({
     }, 400);
   };
 
+  const handleSendEmail = async () => {
+    setEmailLoading(true);
+    try {
+      const result = await sendReportEmail({
+        transactions,
+        monthlyExpenses,
+        budgetDataList,
+      });
+      if (result?.success) {
+        toast.success(`Report sent to ${result.email}`);
+      } else {
+        toast.error(result?.error || "Failed to send email");
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to send email");
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={handleDownload}
-      disabled={loading}
-      className="gap-2"
-    >
-      {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <Download className="h-4 w-4" />
-      )}
-      {loading ? "Preparing..." : "Download Report"}
-    </Button>
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleDownload}
+        disabled={loading || emailLoading}
+        className="gap-2"
+      >
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Download className="h-4 w-4" />
+        )}
+        {loading ? "Preparing..." : "Download PDF"}
+      </Button>
+
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleSendEmail}
+        disabled={loading || emailLoading}
+        className="gap-2"
+      >
+        {emailLoading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Mail className="h-4 w-4" />
+        )}
+        {emailLoading ? "Sending..." : "Send to Email"}
+      </Button>
+    </div>
   );
 }
