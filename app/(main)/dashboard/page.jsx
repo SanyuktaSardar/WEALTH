@@ -22,16 +22,23 @@ export default async function DashboardPage() {
       return {
         accountId: account.id,
         accountName: account.name,
+        isDefault: account.isDefault,
         budget: data?.budget ?? null,
         currentExpenses: data?.currentExpenses ?? 0,
       };
     })
   );
 
+  const defaultAccountId =
+    accounts?.find((a) => a.isDefault)?.id ?? budgetDataList[0]?.accountId;
+
   return (
     <div className="space-y-8">
-      {/* Single Budget Progress bar with account selector */}
-      <BudgetProgress budgetDataList={budgetDataList} />
+      {/* Single Budget Progress bar — auto-selects default account */}
+      <BudgetProgress
+        budgetDataList={budgetDataList}
+        defaultAccountId={defaultAccountId}
+      />
 
       {/* Dashboard Overview */}
       <DashboardOverview

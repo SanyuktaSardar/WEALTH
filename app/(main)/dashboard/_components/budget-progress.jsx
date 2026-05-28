@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Pencil, Check, X, ChevronDown } from "lucide-react";
+import { Pencil, Check, X, ChevronDown, Star } from "lucide-react";
 import useFetch from "@/hooks/use-fetch";
 import { toast } from "sonner";
 
@@ -24,33 +24,34 @@ import {
 import { updateBudget } from "@/actions/budget";
 
 /**
- * budgetDataList: Array of {
- *   accountId: string,
- *   accountName: string,
- *   budget: { amount: number, ... } | null,
- *   currentExpenses: number,
- * }
+ * budgetDataList: { accountId, accountName, isDefault, budget, currentExpenses }[]
+ * defaultAccountId: the currently-default account's id (from server)
  */
-export function BudgetProgress({ budgetDataList = [] }) {
+export function BudgetProgress({ budgetDataList = [], defaultAccountId }) {
+  // Initialize to the default account; sync whenever the server re-renders
+  // with a new default (e.g. after the user switches default in AccountCard).
   const [selectedId, setSelectedId] = useState(
-    budgetDataList[0]?.accountId ?? null
+    defaultAccountId ?? budgetDataList[0]?.accountId ?? null
   );
   const [isEditing, setIsEditing] = useState(false);
   const [newBudget, setNewBudget] = useState("");
 
+  // When the default account changes server-side, auto-switch the view
+  useEffect(() => {
+    if (defaultAccountId) {
+      setSelectedId(defaultAccountId);
+    }
+  }, [defaultAccountId]);
+
   const selected = budgetDataList.find((b) => b.accountId === selectedId);
 
-  // Sync input when selected account changes
+  // Sync edit input when selected account changes
   useEffect(() => {
     setNewBudget(selected?.budget?.amount?.toString() ?? "");
     setIsEditing(false);
   }, [selectedId, selected?.budget?.amount]);
 
-  const {
-    loading: isLoading,
-    fn: updateBudgetFn,
-    error,
-  } = useFetch(updateBudget);
+  const { loading: isLoading, fn: updateBudgetFn, error } = useFetch(updateBudget);
 
   useEffect(() => {
     if (error) toast.error(error.message || "Failed to update budget");
@@ -60,14 +61,11 @@ export function BudgetProgress({ budgetDataList = [] }) {
 
   const currentExpenses = selected?.currentExpenses ?? 0;
   const budgetAmount = selected?.budget?.amount ?? 0;
-  const percentUsed = budgetAmount > 0
-    ? Math.min((currentExpenses / budgetAmount) * 100, 100)
-    : 0;
+  const percentUsed =
+    budgetAmount > 0 ? Math.min((currentExpenses / budgetAmount) * 100, 100) : 0;
 
   const progressColor =
-    percentUsed >= 90 ? "#ef4444" :
-    percentUsed >= 75 ? "#eab308" :
-    "#22c55e";
+    percentUsed >= 90 ? "#ef4444" : percentUsed >= 75 ? "#eab308" : "#22c55e";
 
   const handleUpdateBudget = async () => {
     const amount = parseFloat(newBudget);
@@ -87,45 +85,62 @@ export function BudgetProgress({ budgetDataList = [] }) {
     setIsEditing(false);
   };
 
+  const isSelectedDefault = selected?.accountId === defaultAccountId;
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex-1 min-w-0">
+          {/* Title row: label + account selector */}
           <div className="flex items-center gap-2 flex-wrap">
             <CardTitle className="text-sm font-medium whitespace-nowrap">
               Monthly Budget
             </CardTitle>
 
-            {/* Account selector button */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2 text-xs gap-1"
-                >
+                <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1">
+                  {/* Star icon if showing the default account */}
+                  {isSelectedDefault && (
+                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                  )}
                   {selected?.accountName ?? "Select account"}
                   <ChevronDown className="h-3 w-3 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
+              <DropdownMenuContent align="start" className="min-w-[200px]">
                 {budgetDataList.map((b) => (
                   <DropdownMenuItem
                     key={b.accountId}
                     onClick={() => setSelectedId(b.accountId)}
-                    className={b.accountId === selectedId ? "font-semibold" : ""}
+                    className="flex items-center gap-2"
                   >
-                    {b.accountName}
-                    {b.budget
-                      ? ` — ₹${b.budget.amount.toFixed(2)}`
-                      : " — no budget"}
+                    {/* Star marks the default account */}
+                    {b.accountId === defaultAccountId ? (
+                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 shrink-0" />
+                    ) : (
+                      <span className="w-3 shrink-0" />
+                    )}
+                    <span className={b.accountId === selectedId ? "font-semibold" : ""}>
+                      {b.accountName}
+                    </span>
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {b.budget ? `₹${b.budget.amount.toFixed(2)}` : "no budget"}
+                    </span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Default badge */}
+            {isSelectedDefault && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 font-medium">
+                Default
+              </span>
+            )}
           </div>
 
-          {/* Spend description + edit */}
+          {/* Spend description + edit pencil */}
           <div className="flex items-center gap-2 mt-1">
             {isEditing ? (
               <div className="flex items-center gap-2">
@@ -202,7 +217,8 @@ export function BudgetProgress({ budgetDataList = [] }) {
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Set a monthly budget for <strong>{selected?.accountName}</strong> to track spending.
+            Set a monthly budget for <strong>{selected?.accountName}</strong> to
+            track spending for this account.
           </p>
         )}
       </CardContent>
