@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
 import { DashboardOverview } from "./_components/transaction-overview";
 import { MonthlyExpenseChart } from "./_components/monthly-expense-chart";
+import { DownloadReportButton } from "./_components/download-report-button";
 
 export default async function DashboardPage() {
   const [accounts, transactions, monthlyExpenses] = await Promise.all([
@@ -34,6 +35,17 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Header row with download button */}
+      <div className="flex items-center justify-between">
+        <div /> {/* spacer */}
+        <DownloadReportButton
+          accounts={accounts || []}
+          transactions={transactions || []}
+          monthlyExpenses={monthlyExpenses || []}
+          budgetDataList={budgetDataList}
+        />
+      </div>
+
       {/* Single Budget Progress bar — auto-selects default account */}
       <BudgetProgress
         budgetDataList={budgetDataList}
