@@ -148,3 +148,57 @@ export async function updateDefaultAccount(accountId) {
     return { success: false, error: error.message };
   }
 }
+
+export async function deleteAccount(accountId) {
+  try {
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
+
+    const user = await db.user.findUnique({ where: { clerkUserId: userId } });
+    if (!user) throw new Error("User not found");
+
+    const account = await db.account.findUnique({
+      where: { id: accountId, userId: user.id },
+    });
+    if (!account) throw new Error("Account not found");
+
+    if (account.isDefault) {
+      throw new Error(
+        "Cannot delete the default account. Set another account as default first."
+      );
+    }
+
+    await db.account.delete({ where: { id: accountId, userId: user.id } });
+
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateAccountBalance(accountId, newBalance) {
+  try {
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
+
+    const user = await db.user.findUnique({ where: { clerkUserId: userId } });
+    if (!user) throw new Error("User not found");
+
+    const parsed = parseFloat(newBalance);
+    if (isNaN(parsed) || parsed < 0) {
+      throw new Error("Invalid balance amount");
+    }
+
+    const account = await db.account.update({
+      where: { id: accountId, userId: user.id },
+      data: { balance: parsed },
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath(`/account/${accountId}`);
+    return { success: true, data: serializeDecimal(account) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
