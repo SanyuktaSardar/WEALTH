@@ -17,7 +17,7 @@ model User {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   accounts     Account[]
-  budgets      Budget?
+  budgets      Budget[]
   transactions Transaction[]
 
   @@map("users")
@@ -34,6 +34,7 @@ model Account {
   updatedAt    DateTime      @updatedAt
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  budget       Budget?
 
   @@index([userId])
   @@map("accounts")
@@ -68,10 +69,12 @@ model Budget {
   id            String    @id @default(uuid())
   amount        Decimal
   lastAlertSent DateTime?
-  userId        String    @unique
+  userId        String
+  accountId     String    @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account       Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("budgets")

@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import aj from "@/lib/arcjet";
 import { request } from "@arcjet/next";
 import { scanReceiptLocally } from "@/lib/receipt-scanner-model";
+import { inngest } from "@/lib/inngest/client";
 
 const serializeAmount = (obj) => ({
   ...obj,
@@ -90,6 +91,17 @@ export async function createTransaction(data) {
 
     revalidatePath("/dashboard");
     revalidatePath(`/account/${transaction.accountId}`);
+
+    // Fire budget check event immediately after an expense is created
+    if (data.type === "EXPENSE") {
+      await inngest.send({
+        name: "budget.check",
+        data: {
+          userId: user.id,
+          accountId: data.accountId,
+        },
+      });
+    }
 
     return { success: true, data: serializeAmount(transaction) };
   } catch (error) {
@@ -183,15 +195,17 @@ export async function updateTransaction(id, data) {
           },
         });
       } else {
+        // Reverse the original transaction's effect on the old account
         await tx.account.update({
           where: { id: originalAccountId },
           data: {
             balance: {
-              decrement: oldBalanceChange,
+              increment: -oldBalanceChange,
             },
           },
         });
 
+        // Apply the new transaction's effect on the new account
         await tx.account.update({
           where: { id: nextAccountId },
           data: {

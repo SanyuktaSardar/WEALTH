@@ -24,7 +24,7 @@ export async function sendEmail({ to, subject, react }) {
 }
 
 // Send the monthly summary report as a rich HTML email to the logged-in user
-export async function sendReportEmail({ transactions, monthlyExpenses, budgetDataList }) {
+export async function sendReportEmail({ transactions, monthlyExpenses, budgetDataList, monthKey }) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
@@ -32,9 +32,17 @@ export async function sendReportEmail({ transactions, monthlyExpenses, budgetDat
   if (!user) throw new Error("User not found");
 
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const monthLabel = now.toLocaleString("default", { month: "long", year: "numeric" });
+
+  // Resolve the month to report on (defaults to current month)
+  let reportDate = now;
+  if (monthKey) {
+    const [year, month] = monthKey.split("-").map(Number);
+    reportDate = new Date(year, month - 1, 1);
+  }
+
+  const monthStart = new Date(reportDate.getFullYear(), reportDate.getMonth(), 1);
+  const monthEnd   = new Date(reportDate.getFullYear(), reportDate.getMonth() + 1, 0);
+  const monthLabel = format(reportDate, "MMMM yyyy");
 
   const thisMonthTx = (transactions || []).filter((t) => {
     const d = new Date(t.date);
@@ -194,7 +202,7 @@ export async function sendReportEmail({ transactions, monthlyExpenses, budgetDat
     await resend.emails.send({
       from: "Welth Finance <onboarding@resend.dev>",
       to: user.email,
-      subject: `Your Monthly Financial Report — ${monthLabel}`,
+      subject: `Your Financial Report — ${monthLabel}`,
       html: htmlBody,
     });
 

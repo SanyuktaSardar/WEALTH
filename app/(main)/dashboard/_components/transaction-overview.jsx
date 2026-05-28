@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   PieChart,
   Pie,
@@ -9,7 +9,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import {
   Select,
@@ -29,53 +29,122 @@ const COLORS = [
   "#f59e0b",
   "#ec4899",
   "#8b5cf6",
+  "#f43f5e",
+  "#0ea5e9",
+  "#84cc16",
 ];
+
+// Build period options dynamically from actual transaction dates for the selected account
+function buildPeriodOptions(accountTransactions) {
+  if (!accountTransactions.length) {
+    const now = new Date();
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return [
+      { value: "all", label: "All Time" },
+      { value: currentKey, label: format(now, "MMMM yyyy") },
+    ];
+  }
+
+  // Find the earliest and latest transaction months
+  const months = new Set();
+  accountTransactions.forEach((t) => {
+    const d = new Date(t.date);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    months.add(key);
+  });
+
+  // Also always include current month
+  const now = new Date();
+  const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  months.add(currentKey);
+
+  // Sort descending (newest first)
+  const sorted = [...months].sort((a, b) => b.localeCompare(a));
+
+  return [
+    { value: "all", label: "All Time" },
+    ...sorted.map((key) => ({
+      value: key,
+      label: format(parseISO(`${key}-01`), "MMMM yyyy"),
+    })),
+  ];
+}
 
 export function DashboardOverview({ accounts, transactions }) {
   const [selectedAccountId, setSelectedAccountId] = useState(
     accounts.find((a) => a.isDefault)?.id || accounts[0]?.id
   );
+  const [selectedPeriod, setSelectedPeriod] = useState("current");
 
-  const accountTransactions = transactions.filter(
-    (t) => t.accountId === selectedAccountId
+  // All transactions for the selected account
+  const accountTransactions = useMemo(
+    () => transactions.filter((t) => t.accountId === selectedAccountId),
+    [transactions, selectedAccountId]
   );
 
-  const recentTransactions = [...accountTransactions]
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 5);
-
-  const currentDate = new Date();
-  const currentMonthExpenses = accountTransactions.filter((t) => {
-    const d = new Date(t.date);
-    return (
-      t.type === "EXPENSE" &&
-      d.getMonth() === currentDate.getMonth() &&
-      d.getFullYear() === currentDate.getFullYear()
-    );
-  });
-
-  const expensesByCategory = currentMonthExpenses.reduce((acc, t) => {
-    const amount = typeof t.amount === "number" ? t.amount : parseFloat(t.amount) || 0;
-    acc[t.category] = (acc[t.category] || 0) + amount;
-    return acc;
-  }, {});
-
-  const pieChartData = Object.entries(expensesByCategory).map(
-    ([category, amount]) => ({ name: category, value: amount })
+  // Build period options from actual transaction dates
+  const periodOptions = useMemo(
+    () => buildPeriodOptions(accountTransactions),
+    [accountTransactions]
   );
+
+  // Resolve "current" to the actual current month key
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const resolvedPeriod = selectedPeriod === "current" ? currentMonthKey : selectedPeriod;
+
+  // When account changes, reset to current month
+  const handleAccountChange = (id) => {
+    setSelectedAccountId(id);
+    setSelectedPeriod("current");
+  };
+
+  // Recent 5 transactions (always latest regardless of period filter)
+  const recentTransactions = useMemo(
+    () =>
+      [...accountTransactions]
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 5),
+    [accountTransactions]
+  );
+
+  // Filter expenses for the pie chart based on selected period
+  const filteredExpenses = useMemo(() => {
+    return accountTransactions.filter((t) => {
+      if (t.type !== "EXPENSE") return false;
+      if (resolvedPeriod === "all") return true;
+      const d = new Date(t.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      return key === resolvedPeriod;
+    });
+  }, [accountTransactions, resolvedPeriod]);
+
+  // Aggregate by category
+  const pieChartData = useMemo(() => {
+    const byCategory = filteredExpenses.reduce((acc, t) => {
+      const amount = typeof t.amount === "number" ? t.amount : parseFloat(t.amount) || 0;
+      acc[t.category] = (acc[t.category] || 0) + amount;
+      return acc;
+    }, {});
+    return Object.entries(byCategory)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value]) => ({ name, value }));
+  }, [filteredExpenses]);
+
+  const totalExpenses = pieChartData.reduce((s, d) => s + d.value, 0);
+
+  const selectedPeriodLabel =
+    periodOptions.find((o) => o.value === resolvedPeriod)?.label ?? "All Time";
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      {/* Recent Transactions */}
+      {/* ── Recent Transactions ─────────────────────────────────────────── */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-base font-semibold">
             Recent Transactions
           </CardTitle>
-          <Select
-            value={selectedAccountId}
-            onValueChange={setSelectedAccountId}
-          >
+          <Select value={selectedAccountId} onValueChange={handleAccountChange}>
             <SelectTrigger className="w-[130px] h-8 text-xs">
               <SelectValue placeholder="Select account" />
             </SelectTrigger>
@@ -127,9 +196,7 @@ export function DashboardOverview({ accounts, transactions }) {
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {format(new Date(transaction.date), "MMM d, yyyy")}
                           {" · "}
-                          <span className="capitalize">
-                            {transaction.category}
-                          </span>
+                          <span className="capitalize">{transaction.category}</span>
                         </p>
                       </div>
                     </div>
@@ -152,17 +219,40 @@ export function DashboardOverview({ accounts, transactions }) {
         </CardContent>
       </Card>
 
-      {/* Expense Breakdown Pie Chart */}
+      {/* ── Expense Breakdown Pie Chart ──────────────────────────────────── */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-normal">
-            Monthly Expense Breakdown
-          </CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+          <div>
+            <CardTitle className="text-base font-semibold">
+              Expense Breakdown
+            </CardTitle>
+            {totalExpenses > 0 && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Total: ₹{totalExpenses.toFixed(2)} · {selectedPeriodLabel}
+              </p>
+            )}
+          </div>
+
+          {/* Period filter dropdown */}
+          <Select value={resolvedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-[140px] h-8 text-xs">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60">
+              {periodOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </CardHeader>
+
         <CardContent>
           {pieChartData.length === 0 ? (
             <p className="text-center text-muted-foreground py-8 text-sm">
-              No expenses this month
+              No expenses for{" "}
+              <span className="font-medium">{selectedPeriodLabel}</span>
             </p>
           ) : (
             <div style={{ width: "100%", height: 300 }}>
@@ -172,11 +262,12 @@ export function DashboardOverview({ accounts, transactions }) {
                     data={pieChartData}
                     cx="50%"
                     cy="50%"
-                    outerRadius={80}
+                    outerRadius={85}
                     dataKey="value"
-                    label={({ name, value }) =>
-                      `${name}: ₹${Number(value).toFixed(2)}`
+                    label={({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`
                     }
+                    labelLine={false}
                   >
                     {pieChartData.map((_, index) => (
                       <Cell
@@ -186,7 +277,10 @@ export function DashboardOverview({ accounts, transactions }) {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value) => [`₹${Number(value).toFixed(2)}`, undefined]}
+                    formatter={(value, name) => [
+                      `₹${Number(value).toFixed(2)} (${totalExpenses > 0 ? ((value / totalExpenses) * 100).toFixed(1) : 0}%)`,
+                      name,
+                    ]}
                     contentStyle={{
                       backgroundColor: "hsl(var(--popover))",
                       border: "1px solid hsl(var(--border))",
@@ -196,12 +290,7 @@ export function DashboardOverview({ accounts, transactions }) {
                   />
                   <Legend
                     formatter={(value) => (
-                      <span
-                        style={{
-                          color: "hsl(var(--foreground))",
-                          fontSize: 12,
-                        }}
-                      >
+                      <span style={{ color: "hsl(var(--foreground))", fontSize: 12 }}>
                         {value}
                       </span>
                     )}
