@@ -70,7 +70,7 @@ function buildPeriodOptions(accountTransactions) {
   ];
 }
 
-export function DashboardOverview({ accounts, transactions }) {
+export function DashboardOverview({ accounts = [], transactions = [] }) {
   const [selectedAccountId, setSelectedAccountId] = useState(
     accounts.find((a) => a.isDefault)?.id || accounts[0]?.id
   );
@@ -135,6 +135,16 @@ export function DashboardOverview({ accounts, transactions }) {
 
   const selectedPeriodLabel =
     periodOptions.find((o) => o.value === resolvedPeriod)?.label ?? "All Time";
+
+  if (!accounts.length) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          Create an account to see transactions and expense breakdown.
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="grid gap-4 md:grid-cols-2">

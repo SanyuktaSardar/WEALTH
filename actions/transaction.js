@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import aj from "@/lib/arcjet";
 import { request } from "@arcjet/next";
 import { scanReceiptLocally } from "@/lib/receipt-scanner-model";
-import { inngest } from "@/lib/inngest/client";
+import { triggerBudgetAlertCheck } from "@/lib/budget-alerts";
 
 const serializeAmount = (obj) => ({
   ...obj,
@@ -72,7 +72,14 @@ export async function createTransaction(data) {
     const transaction = await db.$transaction(async (tx) => {
       const newTransaction = await tx.transaction.create({
         data: {
-          ...data,
+          type: data.type,
+          amount: data.amount,
+          description: data.description || null,
+          date: data.date,
+          category: data.category,
+          accountId: data.accountId,
+          isRecurring: data.isRecurring ?? false,
+          recurringInterval: data.recurringInterval ?? null,
           userId: user.id,
           nextRecurringDate:
             data.isRecurring && data.recurringInterval
@@ -92,18 +99,19 @@ export async function createTransaction(data) {
     revalidatePath("/dashboard");
     revalidatePath(`/account/${transaction.accountId}`);
 
-    // Fire budget check event immediately after an expense is created
+    let budgetAlert = null;
     if (data.type === "EXPENSE") {
-      await inngest.send({
-        name: "budget.check",
-        data: {
-          userId: user.id,
-          accountId: data.accountId,
-        },
+      budgetAlert = await triggerBudgetAlertCheck({
+        userId: user.id,
+        accountId: data.accountId,
       });
     }
 
-    return { success: true, data: serializeAmount(transaction) };
+    return {
+      success: true,
+      data: serializeAmount(transaction),
+      budgetAlert,
+    };
   } catch (error) {
     throw new Error(error.message);
   }
@@ -176,7 +184,14 @@ export async function updateTransaction(id, data) {
           userId: user.id,
         },
         data: {
-          ...data,
+          type: data.type,
+          amount: data.amount,
+          description: data.description || null,
+          date: data.date,
+          category: data.category,
+          accountId: data.accountId,
+          isRecurring: data.isRecurring ?? false,
+          recurringInterval: data.recurringInterval ?? null,
           nextRecurringDate:
             data.isRecurring && data.recurringInterval
               ? calculateNextRecurringDate(data.date, data.recurringInterval)
@@ -225,7 +240,20 @@ export async function updateTransaction(id, data) {
       revalidatePath(`/account/${originalAccountId}`);
     }
 
-    return { success: true, data: serializeAmount(transaction) };
+    const accountsToCheck = new Set();
+    if (originalTransaction.type === "EXPENSE") accountsToCheck.add(originalAccountId);
+    if (data.type === "EXPENSE") accountsToCheck.add(nextAccountId);
+    let budgetAlert = null;
+    for (const accountId of accountsToCheck) {
+      const result = await triggerBudgetAlertCheck({ userId: user.id, accountId });
+      if (result?.sent) budgetAlert = result;
+    }
+
+    return {
+      success: true,
+      data: serializeAmount(transaction),
+      budgetAlert,
+    };
   } catch (error) {
     throw new Error(error.message);
   }

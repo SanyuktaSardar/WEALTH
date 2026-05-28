@@ -5,21 +5,49 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/prisma";
 import { format } from "date-fns";
 
-export async function sendEmail({ to, subject, react }) {
-  const resend = new Resend(process.env.RESEND_API_KEY || "");
+const getFromAddress = () =>
+  process.env.RESEND_FROM_EMAIL || "Welth Finance <onboarding@resend.dev>";
+
+/** Send budget alert (80%+ usage) to the user's login email. */
+export async function sendBudgetAlertEmail({ to, subject, html }) {
+  if (!to) {
+    return { success: false, error: "Recipient email is required" };
+  }
+  return sendEmail({ to, subject, html });
+}
+
+export async function sendEmail({ to, subject, react, html }) {
+  if (!process.env.RESEND_API_KEY) {
+    console.error("RESEND_API_KEY is not set — cannot send email");
+    return { success: false, error: "RESEND_API_KEY missing" };
+  }
+
+  if (!html && !react) {
+    return { success: false, error: "Email body is required" };
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
   try {
-    const data = await resend.emails.send({
-      from: "Welth Finance <onboarding@resend.dev>",
+    const { data, error } = await resend.emails.send({
+      from: getFromAddress(),
       to,
       subject,
-      react,
+      ...(html ? { html } : { react }),
     });
+
+    if (error) {
+      const message =
+        typeof error === "string" ? error : error?.message || JSON.stringify(error);
+      console.error("Failed to send email:", message);
+      return { success: false, error: message };
+    }
 
     return { success: true, data };
   } catch (error) {
-    console.error("Failed to send email:", error);
-    return { success: false, error };
+    const message = error?.message || String(error);
+    console.error("Failed to send email:", message);
+    return { success: false, error: message };
   }
 }
 

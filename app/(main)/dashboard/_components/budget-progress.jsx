@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Pencil, Check, X, ChevronDown, Star } from "lucide-react";
 import useFetch from "@/hooks/use-fetch";
 import { toast } from "sonner";
@@ -28,34 +28,15 @@ import { updateBudget } from "@/actions/budget";
  * defaultAccountId: the currently-default account's id (from server)
  */
 export function BudgetProgress({ budgetDataList = [], defaultAccountId }) {
-  // Initialize to the default account; sync whenever the server re-renders
-  // with a new default (e.g. after the user switches default in AccountCard).
   const [selectedId, setSelectedId] = useState(
     defaultAccountId ?? budgetDataList[0]?.accountId ?? null
   );
   const [isEditing, setIsEditing] = useState(false);
   const [newBudget, setNewBudget] = useState("");
 
-  // When the default account changes server-side, auto-switch the view
-  useEffect(() => {
-    if (defaultAccountId) {
-      setSelectedId(defaultAccountId);
-    }
-  }, [defaultAccountId]);
-
   const selected = budgetDataList.find((b) => b.accountId === selectedId);
 
-  // Sync edit input when selected account changes
-  useEffect(() => {
-    setNewBudget(selected?.budget?.amount?.toString() ?? "");
-    setIsEditing(false);
-  }, [selectedId, selected?.budget?.amount]);
-
-  const { loading: isLoading, fn: updateBudgetFn, error } = useFetch(updateBudget);
-
-  useEffect(() => {
-    if (error) toast.error(error.message || "Failed to update budget");
-  }, [error]);
+  const { loading: isLoading, fn: updateBudgetFn } = useFetch(updateBudget);
 
   if (!budgetDataList.length) return null;
 
@@ -66,6 +47,16 @@ export function BudgetProgress({ budgetDataList = [], defaultAccountId }) {
 
   const progressColor =
     percentUsed >= 90 ? "#ef4444" : percentUsed >= 75 ? "#eab308" : "#22c55e";
+
+  const handleSelectAccount = (accountId) => {
+    setSelectedId(accountId);
+    setIsEditing(false);
+  };
+
+  const handleStartEdit = () => {
+    setNewBudget(selected?.budget?.amount?.toString() ?? "");
+    setIsEditing(true);
+  };
 
   const handleUpdateBudget = async () => {
     const amount = parseFloat(newBudget);
@@ -91,7 +82,6 @@ export function BudgetProgress({ budgetDataList = [], defaultAccountId }) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex-1 min-w-0">
-          {/* Title row: label + account selector */}
           <div className="flex items-center gap-2 flex-wrap">
             <CardTitle className="text-sm font-medium whitespace-nowrap">
               Monthly Budget
@@ -100,7 +90,6 @@ export function BudgetProgress({ budgetDataList = [], defaultAccountId }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1">
-                  {/* Star icon if showing the default account */}
                   {isSelectedDefault && (
                     <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                   )}
@@ -112,10 +101,9 @@ export function BudgetProgress({ budgetDataList = [], defaultAccountId }) {
                 {budgetDataList.map((b) => (
                   <DropdownMenuItem
                     key={b.accountId}
-                    onClick={() => setSelectedId(b.accountId)}
+                    onClick={() => handleSelectAccount(b.accountId)}
                     className="flex items-center gap-2"
                   >
-                    {/* Star marks the default account */}
                     {b.accountId === defaultAccountId ? (
                       <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 shrink-0" />
                     ) : (
@@ -132,7 +120,6 @@ export function BudgetProgress({ budgetDataList = [], defaultAccountId }) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Default badge */}
             {isSelectedDefault && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 font-medium">
                 Default
@@ -140,7 +127,6 @@ export function BudgetProgress({ budgetDataList = [], defaultAccountId }) {
             )}
           </div>
 
-          {/* Spend description + edit pencil */}
           <div className="flex items-center gap-2 mt-1">
             {isEditing ? (
               <div className="flex items-center gap-2">
@@ -183,7 +169,7 @@ export function BudgetProgress({ budgetDataList = [], defaultAccountId }) {
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6"
-                  onClick={() => setIsEditing(true)}
+                  onClick={handleStartEdit}
                 >
                   <Pencil className="h-3 w-3" />
                 </Button>
@@ -192,7 +178,6 @@ export function BudgetProgress({ budgetDataList = [], defaultAccountId }) {
           </div>
         </div>
 
-        {/* Percentage badge */}
         {selected?.budget && (
           <span
             className="ml-4 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"

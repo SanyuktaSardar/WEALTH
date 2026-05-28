@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarIcon, Loader2 } from "lucide-react";
@@ -82,19 +81,36 @@ export function AddTransactionForm({
   const {
     loading: transactionLoading,
     fn: transactionFn,
-    data: transactionResult,
   } = useFetch(editMode ? updateTransaction : createTransaction);
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     const formData = {
       ...data,
       amount: parseFloat(data.amount),
     };
 
-    if (editMode) {
-      transactionFn(editId, formData);
-    } else {
-      transactionFn(formData);
+    const result = editMode
+      ? await transactionFn(editId, formData)
+      : await transactionFn(formData);
+
+    if (result?.success) {
+      toast.success(
+        editMode
+          ? "Transaction updated successfully"
+          : "Transaction created successfully"
+      );
+      const alert = result.budgetAlert;
+      if (alert?.sent) {
+        toast.success(`Budget alert email sent to ${alert.email}`);
+      } else if (alert?.skipped === "email failed") {
+        toast.error(
+          typeof alert.error === "string"
+            ? `Budget alert email failed: ${alert.error}`
+            : "Budget alert email failed. Check RESEND_API_KEY and verify your email in Resend."
+        );
+      }
+      reset();
+      router.push(`/account/${result.data.accountId}`);
     }
   };
 
@@ -116,18 +132,6 @@ export function AddTransactionForm({
       toast.success("Receipt scanned: item and total price filled");
     }
   };
-
-  useEffect(() => {
-    if (transactionResult?.success && !transactionLoading) {
-      toast.success(
-        editMode
-          ? "Transaction updated successfully"
-          : "Transaction created successfully"
-      );
-      reset();
-      router.push(`/account/${transactionResult.data.accountId}`);
-    }
-  }, [editMode, reset, router, transactionLoading, transactionResult]);
 
   const type = useWatch({ control, name: "type" });
   const isRecurring = useWatch({ control, name: "isRecurring" });

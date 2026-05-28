@@ -27,11 +27,18 @@ export async function POST(req) {
         where: { userId: user.id },
         orderBy: { date: "desc" },
         take: 50,
-        select: { type: true, amount: true, category: true, date: true, description: true },
+        select: {
+          type: true,
+          amount: true,
+          category: true,
+          date: true,
+          description: true,
+          accountId: true,
+        },
       }),
       db.budget.findMany({
         where: { userId: user.id },
-        select: { amount: true },
+        select: { amount: true, accountId: true },
       }),
     ]);
 

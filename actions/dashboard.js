@@ -51,7 +51,8 @@ export async function getUserAccounts() {
 
     return serializedAccounts;
   } catch (error) {
-    console.error(error.message);
+    console.error("Error fetching accounts:", error.message);
+    throw new Error(error.message || "Failed to fetch accounts");
   }
 }
 

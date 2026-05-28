@@ -3,6 +3,7 @@
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import { triggerBudgetAlertCheck } from "@/lib/budget-alerts";
 
 // Get budget + current month expenses for a specific account
 export async function getCurrentBudget(accountId) {
@@ -17,14 +18,23 @@ export async function getCurrentBudget(accountId) {
     const budget = await db.budget.findUnique({ where: { accountId } });
 
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
 
     const expenses = await db.transaction.aggregate({
       where: {
         userId: user.id,
         accountId,
         type: "EXPENSE",
+        status: "COMPLETED",
         date: { gte: startOfMonth, lte: endOfMonth },
       },
       _sum: { amount: true },
@@ -64,6 +74,8 @@ export async function updateBudget(accountId, amount) {
     });
 
     revalidatePath("/dashboard");
+    await triggerBudgetAlertCheck({ userId: user.id, accountId });
+
     return {
       success: true,
       data: { ...budget, amount: budget.amount.toNumber() },

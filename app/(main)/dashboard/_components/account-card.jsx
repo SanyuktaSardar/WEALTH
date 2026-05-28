@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ArrowUpRight, ArrowDownRight, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -41,8 +41,6 @@ export function AccountCard({ account }) {
   const {
     loading: defaultLoading,
     fn: updateDefaultFn,
-    data: updatedDefault,
-    error: defaultError,
   } = useFetch(updateDefaultAccount);
 
   const handleDefaultChange = async (e) => {
@@ -51,16 +49,10 @@ export function AccountCard({ account }) {
       toast.warning("You need at least 1 default account");
       return;
     }
-    await updateDefaultFn(id);
+    const result = await updateDefaultFn(id);
+    if (result?.success) toast.success("Default account updated");
+    else if (result?.error) toast.error(result.error);
   };
-
-  useEffect(() => {
-    if (updatedDefault?.success) toast.success("Default account updated");
-  }, [updatedDefault]);
-
-  useEffect(() => {
-    if (defaultError) toast.error(defaultError.message || "Failed to update default");
-  }, [defaultError]);
 
   // ── Delete ──────────────────────────────────────────────────────────────────
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -68,28 +60,18 @@ export function AccountCard({ account }) {
   const {
     loading: deleteLoading,
     fn: deleteFn,
-    data: deleteResult,
-    error: deleteError,
   } = useFetch(deleteAccount);
 
   const handleDelete = async () => {
-    await deleteFn(id);
-  };
-
-  useEffect(() => {
-    if (deleteResult?.success) {
+    const result = await deleteFn(id);
+    if (result?.success) {
       toast.success("Account deleted successfully");
       setShowDeleteDialog(false);
-    }
-    if (deleteResult?.error) {
-      toast.error(deleteResult.error);
+    } else if (result?.error) {
+      toast.error(result.error);
       setShowDeleteDialog(false);
     }
-  }, [deleteResult]);
-
-  useEffect(() => {
-    if (deleteError) toast.error(deleteError.message || "Failed to delete account");
-  }, [deleteError]);
+  };
 
   // ── Edit balance ────────────────────────────────────────────────────────────
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -98,8 +80,6 @@ export function AccountCard({ account }) {
   const {
     loading: editLoading,
     fn: editBalanceFn,
-    data: editResult,
-    error: editError,
   } = useFetch(updateAccountBalance);
 
   const handleEditBalance = async () => {
@@ -108,22 +88,14 @@ export function AccountCard({ account }) {
       toast.error("Please enter a valid balance");
       return;
     }
-    await editBalanceFn(id, val);
-  };
-
-  useEffect(() => {
-    if (editResult?.success) {
+    const result = await editBalanceFn(id, val);
+    if (result?.success) {
       toast.success("Balance updated successfully");
       setShowEditDialog(false);
+    } else if (result?.error) {
+      toast.error(result.error);
     }
-    if (editResult?.error) {
-      toast.error(editResult.error);
-    }
-  }, [editResult]);
-
-  useEffect(() => {
-    if (editError) toast.error(editError.message || "Failed to update balance");
-  }, [editError]);
+  };
 
   return (
     <>

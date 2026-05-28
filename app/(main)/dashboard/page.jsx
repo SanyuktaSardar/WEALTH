@@ -48,6 +48,7 @@ export default async function DashboardPage() {
 
       {/* Single Budget Progress bar — auto-selects default account */}
       <BudgetProgress
+        key={defaultAccountId}
         budgetDataList={budgetDataList}
         defaultAccountId={defaultAccountId}
       />
@@ -71,8 +72,8 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </CreateAccountDrawer>
-        {accounts.length > 0 &&
-          accounts.map((account) => (
+        {(accounts || []).length > 0 &&
+          (accounts || []).map((account) => (
             <AccountCard key={account.id} account={account} />
           ))}
       </div>
