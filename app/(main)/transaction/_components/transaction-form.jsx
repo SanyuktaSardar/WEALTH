@@ -106,7 +106,7 @@ export function AddTransactionForm({
         toast.error(
           typeof alert.error === "string"
             ? `Budget alert email failed: ${alert.error}`
-            : "Budget alert email failed. Check RESEND_API_KEY and verify your email in Resend."
+            : "Budget alert email failed. Add GMAIL_USER + GMAIL_APP_PASSWORD to .env (no Resend needed)."
         );
       }
       reset();

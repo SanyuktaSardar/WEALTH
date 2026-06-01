@@ -1,12 +1,21 @@
 "use server";
 
-import { Resend } from "resend";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/prisma";
 import { format } from "date-fns";
+import { deliverEmail } from "@/lib/mail-transport";
 
-const getFromAddress = () =>
-  process.env.RESEND_FROM_EMAIL || "Welth Finance <onboarding@resend.dev>";
+async function resolveHtmlBody({ html, react }) {
+  if (html) return html;
+  if (!react) return null;
+  try {
+    const { render } = await import("@react-email/render");
+    return await render(react);
+  } catch (err) {
+    console.error("Failed to render email template:", err?.message);
+    return null;
+  }
+}
 
 /** Send budget alert (80%+ usage) to the user's login email. */
 export async function sendBudgetAlertEmail({ to, subject, html }) {
@@ -17,38 +26,11 @@ export async function sendBudgetAlertEmail({ to, subject, html }) {
 }
 
 export async function sendEmail({ to, subject, react, html }) {
-  if (!process.env.RESEND_API_KEY) {
-    console.error("RESEND_API_KEY is not set — cannot send email");
-    return { success: false, error: "RESEND_API_KEY missing" };
-  }
-
-  if (!html && !react) {
+  const htmlBody = await resolveHtmlBody({ html, react });
+  if (!htmlBody) {
     return { success: false, error: "Email body is required" };
   }
-
-  const resend = new Resend(process.env.RESEND_API_KEY);
-
-  try {
-    const { data, error } = await resend.emails.send({
-      from: getFromAddress(),
-      to,
-      subject,
-      ...(html ? { html } : { react }),
-    });
-
-    if (error) {
-      const message =
-        typeof error === "string" ? error : error?.message || JSON.stringify(error);
-      console.error("Failed to send email:", message);
-      return { success: false, error: message };
-    }
-
-    return { success: true, data };
-  } catch (error) {
-    const message = error?.message || String(error);
-    console.error("Failed to send email:", message);
-    return { success: false, error: message };
-  }
+  return deliverEmail({ to, subject, html: htmlBody });
 }
 
 // Send the monthly summary report as a rich HTML email to the logged-in user
@@ -224,15 +206,16 @@ export async function sendReportEmail({ transactions, monthlyExpenses, budgetDat
 </body>
 </html>`;
 
-  const resend = new Resend(process.env.RESEND_API_KEY || "");
-
   try {
-    await resend.emails.send({
-      from: "Welth Finance <onboarding@resend.dev>",
+    const result = await deliverEmail({
       to: user.email,
       subject: `Your Financial Report — ${monthLabel}`,
       html: htmlBody,
     });
+
+    if (!result.success) {
+      return { success: false, error: result.error };
+    }
 
     return { success: true, email: user.email };
   } catch (error) {
